@@ -35,30 +35,39 @@ class Driver(BaseHTTPRequestHandler):
         
         #The task is requested by a call of the form .request('GET', '/map'). Hence, by splitting and calling the last element, we get
             #the kind of task requested.
-        task = self.path.split('/')[-1]
+        call = self.path.split('/')[-1]
         
-        id = None #We initialize the variable to None, which will handle finished tasks (see below)
 
         # We assign tasks by extracting the task ID from the dictionary and eliminating it from there, using pop
-        if task == 'map' and tasks['map']: # If there are no tasks of a type left, this returns False
-            id = tasks['map'].pop(0) 
-            print(f"Sending map task with ID {id} to worker.")
-        elif task == 'reduce' and tasks['reduce']:
-            if len(completed_tasks["map"])<M:
-                id = -1   # This sends a flag value if maps are not done yet
-            else:
-                id = tasks['reduce'].pop(0)
-                print(f"Sending reduce task with ID {id} to worker.")
-           
-        # We send the response. 
-        if task == 'info':
-            reply = {'N': N, 'M': M} # Info task retrieves M and N
-        else:
-            if id is not None:
-                reply = {'task': task, 'id': id}
-            else:
-                reply = {'task': 'no_tasks', 'id': id} # If there are no tasks of a kind left, we return 'no_tasks'
         
+        # If the worker asks for info, we send it back
+        if call == 'info':
+            reply = {'N': N, 'M': M} # Info task retrieves M and N
+            
+        # The other option is that the worker asks for a task
+        elif call == 'task': 
+        
+            if tasks['map']: # If there are no tasks of a type left, this returns False
+                task = 'map'
+                id = tasks['map'].pop(0) 
+                print(f"Sending map task with ID {id} to worker.")
+                
+            elif not tasks['map'] and tasks['reduce']:
+                task = 'reduce'
+                if len(completed_tasks["map"])<M:
+                    id = -1   # This sends a flag value if maps are not done yet
+                else:
+                    id = tasks['reduce'].pop(0)
+                    print(f"Sending reduce task with ID {id} to worker.")
+
+            else:
+                task = 'no_tasks' # If all tasks are done, we return 'no_tasks'
+                id = None
+
+            reply = {'task': task, 'id': id}
+            
+                
+        # We send the response.         
         self.send_response(200) # We signal a succesful request
         # We will send the reply using a JSON format
         self.send_header('Content-type', 'application/json') 

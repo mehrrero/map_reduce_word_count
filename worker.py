@@ -93,17 +93,11 @@ def _request(driver_IP):
         try:
             driver = http.client.HTTPConnection(driver_IP) # We connect to the driver
     
-            driver.request('GET', '/map')  # We first ask the driver for a map task
+            driver.request('GET', '/task')  # We first ask the driver for a map task
     
             # We obtain the reply from the driver and read it in JSON format 
             reply = driver.getresponse() 
             reply_json = json.loads(reply.read()) 
-    
-            # Checks if the map tasks are done. If so, asks for a reduce task
-            if reply_json['task'] == 'no_tasks':
-                driver.request('GET', '/reduce')
-                reply = driver.getresponse()
-                reply_json = json.loads(reply.read())
 
             driver.close()
             return reply_json
