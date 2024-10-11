@@ -31,7 +31,7 @@ This file launches the driver server that controls the workflow. It is built usi
 
 **Methods:**
 
-- `GET`: A GET call of the form `GET /call` is processed, depending on the value of the handle `call`. Three options are available. If the handle takes the values `map` or `reduce`, the driver checks whether there are remaining tasks of the desired type to be done. If so, it assigns one of them to the worker. If not, it returns a `no_tasks` message.
+- `GET`: A GET call of the form `GET /call` is processed, with result depending on the value of the handle `call`. Three options are available. If the handle takes the values `map` or `reduce`, the driver checks whether there are remaining tasks of the desired type to be done. If so, it assigns one of them to the worker. If not, it returns a `no_tasks` message.
 
 If the handle is `info`, then the driver returns the total number of tasks of each type.
 
