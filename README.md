@@ -51,7 +51,7 @@ This file runs a worker process which performs the map and reduce tasks received
 
 - *reduce task*: Each reduce task takes all the files of a given bucket and counts how many times each word appears in them. Then, it produces an output file with the format `out-<reduce task id>.txt` which is stored in the `out` folder.
 
-## Usage:
+## Usage
 
 1. Create an `inputs` folder in the same directory where `driver.py` and `worker.py` are. Put your input files in .txt format in this folder (example files are provided).
 
