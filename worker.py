@@ -23,7 +23,7 @@ def _map(task_id, num_reduces):
     input = f'temp/{task_id}.txt'
     with open(input, 'r') as f:
         # We eliminate question marks, commas, etc...
-        text = f.read().replace(";", " ").replace('"', " ").replace(",", " ").replace(".", " ").replace("!", " ").replace("?", " ").replace('-', ' ').replace('_', ' ').replace('[', ' ').replace(']', ' ').replace('(', ' ').replace(')', ' ').replace(":"," ").replace("*", " ").split()
+        text = f.read().replace(";", " ").replace('"', " ").replace(",", " ").replace(".", " ").replace("!", " ").replace("?", " ").replace('-', ' ').replace('_', ' ').replace('[', ' ').replace(']', ' ').replace('(', ' ').replace(')', ' ').replace(":"," ").replace("*", " ").replace("#"," ").split()
          
     # Bucket words by the first letter modulo M
     for word in text:
@@ -76,21 +76,20 @@ def _reduce(bucket_id, num_maps):
 
 ###########################################################
 
-def _request(driver_IP, max_tries = 10):
+def _request(driver_IP):
     """
     Requests a task to the driver.
 
     Parameters:
         driver_IP (string): IP address of the driver, eg. 'localhost:8000'.
-        max_tries (int, optional): Maximum number of connecting tries Devault value 10.
 
     Returns:
         reply_json (JSON): File with JSON data of the task requested.
     """
     # We include the call in a loop so that it keeps trying in case there is no driver server yet on. 
     # We added a timeout at the end to space the calls to the driver.
-    tries = 1
-    while tries < 10: # We close the loop after 10 un-succesful tries (100 seconds)
+   
+    while True: # We keep the worker in an infinite loop until the driver exist
         try:
             driver = http.client.HTTPConnection(driver_IP) # We connect to the driver
     
@@ -110,12 +109,9 @@ def _request(driver_IP, max_tries = 10):
             return reply_json
 
         except (http.client.HTTPException, ConnectionRefusedError) as _:
-            print("Driver not found. Retrying in 4 seconds")
-            time.sleep(4)  # Wait for 4 seconds
-            tries += 1
-
-    print("Driver not found after 10 attempts. Closing worker.")
-    return {'task': 'timeout'} # We return a finished task to close the worker
+            print("Driver not found. Retrying in 5 seconds")
+            time.sleep(5)  # Wait for 5 seconds
+           
     
 ###########################################################
 
@@ -145,23 +141,22 @@ def _done(driver_IP, task, id):
         connection.getresponse()
         connection.close()
     except (http.client.HTTPException, ConnectionRefusedError) as _:
-            print("Driver not found. Closing worker.")
+            print("Driver not found in POST call. All works might be done, check driver log. Closing worker.")
             ex = True
     return ex
 ############################################################
 
-def _info(driver_IP, max_tries = 10):
+def _info(driver_IP):
     """
     Ask the driver for the values of M and N.
     
     Parameters:
         driver_IP: IP of the driver.
-        max_tries (int, optional): Maximum number of connecting tries Devault value 10.
     """
     global M, N
 
     tries = 1
-    while tries < 10: # We close the loop after 10 un-succesful tries (100 seconds)
+    while True: #This runs in an infinite loop to wait for the driver
         try:
             driver = http.client.HTTPConnection(driver_IP) # We connect to the driver
     
@@ -176,12 +171,10 @@ def _info(driver_IP, max_tries = 10):
             return True
             
         except (http.client.HTTPException, ConnectionRefusedError) as _:
-            print("Driver not found. Retrying in 4 seconds")
-            time.sleep(4)  # Wait for 4 seconds
+            print("Driver not found. Retrying in 10 seconds")
+            time.sleep(10)  # Wait for 10 seconds
             tries += 1
-    print("Driver not found after 10 attempts. Closing worker.")
-    
-    return False # We return whether we have found the server or not.
+  
 
 ############################################################
 
@@ -204,8 +197,6 @@ def Worker(driver_IP, num_maps, num_reduces):
             # If there are no tasks available, we turn off the worker by breaking the loop.
             print("All tasks are done. Shutting down the worker.")
             break
-        elif task == 'timeout':
-            break # We break if the server is not found.    
         
         # Otherwise we retrieve the id and tell the worker to perform the adequate task.
         id = reply['id']
@@ -215,13 +206,12 @@ def Worker(driver_IP, num_maps, num_reduces):
             _map(id, num_reduces)
         elif task == 'reduce':
             if id == -1:
-                print("All map tasks have been assigned. Waiting for them to finish before starting reduce tasks.\nWorker sleeping for 30 seconds.")
-                time.sleep(30) 
+                print("All map tasks have been assigned. Waiting for them to finish before starting reduce tasks.\nWorker sleeping for 10 seconds.")
+                time.sleep(10) 
             else:
                 print(f"Performing reduce task with ID {id}")
                 _reduce(id, num_maps)
                 
-        
         # We end up by letting the driver know that the job is finished.
         ex = _done(driver_host, task, id)
         if ex:
@@ -245,10 +235,9 @@ if __name__ == '__main__':
     M = None
     N = None
     
-    ok = _info(driver_host) # We first retrieve the value of N and M from the server.
+    _info(driver_host) # We first retrieve the value of N and M from the server.
 
-    if ok: # We only run the worker if we have found the server.
-        Worker(driver_host, N, M)
+    Worker(driver_host, N, M)
 
 
 

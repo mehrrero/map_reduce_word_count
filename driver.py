@@ -85,18 +85,6 @@ class Driver(BaseHTTPRequestHandler):
 
     #################################
 
-
-def old_driver(port):
-    """
-    Runs the driver server.
-
-    Parameters (int): Port number that the driver will be using.
-    """
-    address = ('', port) # We set the address of the driver running in all interfaces.
-    server = HTTPServer(address, Driver) #We load the server.
-    print(f"Server on port {port}")
-    server.serve_forever() # We set the server to be eternally on.
-
 #######################################
 def _driver(port):
     """
@@ -122,12 +110,12 @@ def _driver(port):
         while True:
             if not tasks["reduce"]: # The server closes when all reduce tasks are done
                 print("----------------------")
-                print("All tasks completed. Shutting down server in 40 seconds.")
+                print("All tasks completed. Shutting down server in 30 seconds.")
                 print("----------------------")
-                time.sleep(40) # We give it time to send the task done signal to all workers (which sleep only 30 seconds).
+                time.sleep(30) # We give it time to send the task done signal to all workers (which sleep only 30 seconds).
                 server.shutdown() 
                 break
-            time.sleep(5)  # Check every 5 seconds
+            time.sleep(10)  # Check every 10 seconds
     except KeyboardInterrupt:
         print("Server interrupted. Shutting down.")
         server.shutdown()
@@ -196,13 +184,16 @@ if __name__ == '__main__':
     """
 
     # We first create the required folders. We delete first older versions to avoid problems with files with similar names
-    shutil.rmtree('temp')
+    if os.path.exists('temp'):
+        shutil.rmtree('temp')
     os.mkdir('temp')
-        
-    shutil.rmtree('intermediate')
+    
+    if os.path.exists('intermediate'):   
+        shutil.rmtree('intermediate')
     os.mkdir('intermediate')
-
-    shutil.rmtree('out')
+    
+    if os.path.exists('out'):
+        shutil.rmtree('out')
     os.mkdir('out')
 
 
