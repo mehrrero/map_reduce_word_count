@@ -12,11 +12,11 @@ We have a driver server which controls the flow of work, distributing it among t
 - `README.md`
 - `driver.py`
 - `worker.py`
-- `inputs`
-- `instructions`
-- `intermediate`
-- `out`
-- `temp`
+- `/inputs`
+- `/instructions`
+- `/intermediate`
+- `/out`
+- `/temp`
 
 The `intermediate`, `out` and `temp` folders are created by the driver when executed if they do not exist. `instructions` contains the instructions provided for the test.
 
