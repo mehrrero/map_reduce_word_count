@@ -4,14 +4,15 @@
 M=""
 N=""
 W=""
-p=8084
+p=""
 
 # We first parse the command line arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --M) M="$2"; shift ;;
-        --N) N="$2"; shift ;;
-        --W) W="$2"; shift ;;
+        -M) M="$2"; shift ;;
+        -N) N="$2"; shift ;;
+        -W) W="$2"; shift ;;
+        -p) p="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
@@ -31,17 +32,21 @@ if [[ -z "$W" ]]; then
     echo "Resorting to default number of workers."
     W=4
 fi
+if [[ -z "$p" ]]; then
+    echo "Resorting to default port."
+    p=8080
+fi
 echo "----------------------"
 
 echo "N = $N."
 echo "M = $M."
 echo "Running with $W workers."
 
-python driver.py --M $M --N $N --p $p &
+python driver.py -M $M -N $N -p $p &
 
-for i in $(seq 1 $M)
+for i in $(seq 1 $W)
 do
-    python worker.py --p $p &
+    python worker.py -p $p &
 done
 
 wait

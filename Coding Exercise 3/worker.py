@@ -7,10 +7,11 @@ import argparse
 
 # We read p from command line
 parser = argparse.ArgumentParser(description='Input for the port address of the driver.')
-parser.add_argument('--p', type=int, required=True, help='Port address for the driver.')
+parser.add_argument('-p', type=int, required=True, help='Port address for the driver.')
 args = parser.parse_args()
 p = args.p
 
+############################################
 def _map(task_id, num_reduces):
     """
     Performs the map task. Saves the intermediate file to disk with a filename mr-{task_id}-{bucket_id}.txt.
@@ -19,23 +20,27 @@ def _map(task_id, num_reduces):
         task_id (int): ID of the task to be performed.
         num_reduces (int): Number of total reduce tasks.        
     """
-    input = f'temp/tasks/{task_id}.txt'
+    input = f'temp/{task_id}.txt'
     with open(input, 'r') as f:
-        text = f.read().split()
-    
+        # We eliminate question marks, commas, etc...
+        text = f.read().replace(";", " ").replace('"', " ").replace(",", " ").replace(".", " ").replace("!", " ").replace("?", " ").replace('-', ' ').replace('_', ' ').replace('[', ' ').replace(']', ' ').replace('(', ' ').replace(')', ' ').replace(":"," ").replace("*", " ").split()
+         
     # Bucket words by the first letter modulo M
     for word in text:
-        
-        #We do not distinguish uppercas or lowercase
-        word = word.lower()
-        
-        # We set the buket ID using the unicode code for the first character. 
-        bucket_id = ord(word[0].lower()) % num_reduces 
 
+        #We do not distinguish uppercase or lowercase. We also remove quotation marks and spaces
+        word = word.lower().strip("'").strip()
+        
+        if word != '': # We add this to solve issues with empty words after eliminating '
+        # We set the buket ID using the unicode code for the first character. 
+            bucket_id = ord(word[0]) % num_reduces 
+        
         # We append the words to the intermediate file 
-        intermediate = f'intermediate/mr-{task_id}-{bucket_id}.txt'
-        with open(intermediate, 'a') as bucket:
-            bucket.write(f"{word}\n")
+            intermediate = f'intermediate/mr-{task_id}-{bucket_id}.txt'
+            with open(intermediate, 'a') as bucket:
+            
+                bucket.write(f"{word}\n") 
+           
 
 
 ###########################################################
@@ -60,7 +65,7 @@ def _reduce(bucket_id, num_maps):
             continue
         with open(intermediate, 'r') as f:
             for word in f:
-                word = word.strip() # We remove spaces in and after the word, just in case
+                word = word.strip()
                 counts[word] = counts.get(word, 0) + 1 # We add one to the word count in the dictionary
     
     # Write the output to a file
@@ -210,7 +215,7 @@ def Worker(driver_IP, num_maps, num_reduces):
             _map(id, num_reduces)
         elif task == 'reduce':
             if id == -1:
-                print("All map tasks have been assigned. Waiting for them to finish before starting reduce tasks.\nSleeping for 30 seconds.")
+                print("All map tasks have been assigned. Waiting for them to finish before starting reduce tasks.\nWorker sleeping for 30 seconds.")
                 time.sleep(30) 
             else:
                 print(f"Performing reduce task with ID {id}")
@@ -230,7 +235,7 @@ if __name__ == '__main__':
     Script that runs the worker performing the tasks.
     
     Parameters:
-    --p (int): Port on which the driver is listening.
+    -p (int): Port on which the driver is listening.
     """
 
     time.sleep(2) # This is jus to allow the driver time to perform the first operation on the input files

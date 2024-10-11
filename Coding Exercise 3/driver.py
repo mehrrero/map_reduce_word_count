@@ -6,12 +6,13 @@ import argparse
 import glob
 import threading
 import time
+import shutil
 
 # We will take N and M from command line when setting up the driver server, as well as the port address
 parser = argparse.ArgumentParser(description='Inputs for N, and the port address.')
-parser.add_argument('--N', type=int, required=True, help='Number of map tasks (N).')
-parser.add_argument('--M', type=int, required=True, help='Number of reduce tasks (M).')
-parser.add_argument('--p', type=int, required=True, help='Port address for the server (p)')
+parser.add_argument('-N', type=int, required=True, help='Number of map tasks (N).')
+parser.add_argument('-M', type=int, required=True, help='Number of reduce tasks (M).')
+parser.add_argument('-p', type=int, required=True, help='Port address for the server (p)')
 args = parser.parse_args()
 N = args.N
 M = args.M
@@ -173,7 +174,7 @@ def process_input_text(path, N_tasks):
         end = start + current_file_lines
         
         # We write the lines to a new file
-        name = os.path.join("temp/tasks/", f'{count-1}.txt')
+        name = os.path.join("temp/", f'{count-1}.txt')
         with open(name, 'w') as file_i:
             file_i.writelines(lines[start:end])
         
@@ -189,24 +190,21 @@ if __name__ == '__main__':
     Script that initializes the driver server.
     
     Parameters:
-    --N (int): Number of map tasks.
-    --M (int): Number of reduce tasks.
-    --p (int): Port on which the server will be listening.
+    -N (int): Number of map tasks.
+    -M (int): Number of reduce tasks.
+    -p (int): Port on which the server will be listening.
     """
 
-    # We first create the required folders.
-    if not os.path.exists('temp'):
-        os.mkdir('temp')
+    # We first create the required folders. We delete first older versions to avoid problems with files with similar names
+    shutil.rmtree('temp')
+    os.mkdir('temp')
         
-    if not os.path.exists('intermediate'):
-        os.mkdir('intermediate')
+    shutil.rmtree('intermediate')
+    os.mkdir('intermediate')
 
-    if not os.path.exists('out'):
-        os.mkdir('out')
+    shutil.rmtree('out')
+    os.mkdir('out')
 
-    if not os.path.exists('temp/tasks'):
-        os.mkdir('temp/tasks')
-    
 
     process_input_text("inputs/", N) # We start by processing the input test to generate N map tasks.
     print(f"Running map_reduce with N={N} map tasks and M={M} reduce tasks")
