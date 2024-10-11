@@ -5,7 +5,6 @@ The code in this repository solves the classical word count problem using a stra
 We have a driver server which controls the flow of work, distributing it among the workers and keeping track of completed tasks. A cartoon picture of this can be seen in the figure below.
 
 <img src="./instructions/screenshot1.png" width="50%" alt="Image description">
-![image info](./instructions/screenshot1.png)
 
 
 ## Code structure
