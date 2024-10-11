@@ -41,7 +41,7 @@ After no more tasks are waiting to be finished, the driver shutsdown, with a wai
 
 ### worker.py
 
-This file runs a worker process which performs the map and reduce tasks received by the driver. It first asks the driver how many tasks of each type are, by a `GET` call. Afterwards, it starts asking for tasks to perform. First, it inquires for map tasks and, if those are not available anymore, for reduce tasks. If all map tasks have been assigned but not finished, it waits before starting to reduce. If there are not task remaining, the worker finishes execution.
+This file runs a worker process which performs the map and reduce tasks received by the driver. It first asks the driver how many tasks of each type are, by a `GET` call. Afterwards, it starts asking for tasks to perform. First, it inquires for map tasks and, if those are not available anymore, for reduce tasks. If all map tasks have been assigned but not finished, it waits before starting to reduce. If there are not task remaining, the worker finishes execution. Once run, the worker waits for a server to be available in the port indicated.
 
 **Parameters:**
 - -p (int): HTTP port where the driver is listening. The IP is assumed to be `localhost:p`.
@@ -53,7 +53,7 @@ This file runs a worker process which performs the map and reduce tasks received
 
 ## Usage:
 
-1. To use the code, create an `inputs` folder in the same directory where `driver.py` and `worker.py` are. Put your input files in .txt format in this folder (example files are provided).
+1. Create an `inputs` folder in the same directory where `driver.py` and `worker.py` are. Put your input files in .txt format in this folder (example files are provided).
 
 2. Run the driver with `python driver.py -N N -M M -p p` where $N,M$ and $p$ are the number of map and reduce tasks, and the port for the HTTP server.
        *Example*: `python driver.py -N 5 -M 2 -p 8080` will run the driver with 5 map task, 2 reduce tasks, and over the port 8080.
