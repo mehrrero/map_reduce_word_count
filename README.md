@@ -55,10 +55,10 @@ This file runs a worker process which performs the map and reduce tasks received
 
 1. Create an `inputs` folder in the same directory where `driver.py` and `worker.py` are. Put your input files in .txt format in this folder (example files are provided).
 
-2. Run the driver with `python driver.py -N N -M M -p p` where $N,M$ and $p$ are the number of map and reduce tasks, and the port for the HTTP server.
+2. Run the driver with `python driver.py -N N -M M -p p` where $N,M$ and $p$ are the number of map and reduce tasks, and the port for the HTTP server, respectively.
        *Example*: `python driver.py -N 5 -M 2 -p 8080` will run the driver with 5 map task, 2 reduce tasks, and over the port 8080.
 
-4. Run any number of instances of the worker with `python worker.py -p p` where $p$ is the port where the driver is listening.
+3. Run any number of instances of the worker with `python worker.py -p p` where $p$ is the port where the driver is listening. Steps 2 and 3 can be executed in any order.
         *Example*: `python worker.py -p 8080` will run a worker, telling it to expect a driver at port 8080.
 
 Alternatively, we also provide a shell script `map_reduce.sh` which runs all files in a single terminal window. It can be called with optional parameters `-N`, `-M`, `-p` and `-W` for the number of workers. If any of these parameters are not chosen by the user, the code will run with default values (`N=6, M=4, W=4, p=8080`).
