@@ -228,7 +228,7 @@ if __name__ == '__main__':
     -p (int): Port on which the driver is listening.
     """
 
-    time.sleep(2) # This is jus to allow the driver time to perform the first operation on the input files
+    time.sleep(2) # This is jus to allow the driver time to perform the first operation on the input files without ugly error messages
                     # in case driver and workers are called simultaneously.
     
     driver_host = f'localhost:{p}'
