@@ -61,7 +61,7 @@ This file runs a worker process which performs the map and reduce tasks received
 4. Run any number of instances of the worker with `python worker.py -p p` where $p$ is the port where the driver is listening. Steps 2 and 3 can be executed in any order. \
         *Example*: `python worker.py -p 8080` will run a worker, telling it to expect a driver at port 8080.
 
-Alternatively, we also provide a shell script `map_reduce.sh` which runs all files in a single terminal window. It can be called with optional parameters `-N`, `-M`, `-p` and `-W` for the number of workers. If any of these parameters are not chosen by the user, the code will run with default values (`N=6, M=4, W=4, p=8080`).
+Alternatively, we also provide a shell script `map_reduce.sh` which runs all files in a single terminal window. It can be called with optional parameters `-N`, `-M`, `-p`, and `-W` for the number of workers. If any of these parameters are not chosen by the user, the code will run with default values (`N=6, M=4, W=4, p=8080`).
 
 
 
