@@ -3,6 +3,9 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import os
 import argparse
+import glob
+import threading
+import time
 
 # We will take N and M from command line when setting up the driver server, as well as the port address
 parser = argparse.ArgumentParser(description='Inputs for N, and the port address.')
@@ -26,25 +29,34 @@ class Driver(BaseHTTPRequestHandler):
         """
         Returns a task type and task ID in JSON format to a request from the worker.
         """
+
+        global completed_tasks, tasks, N, M
         
         #The task is requested by a call of the form .request('GET', '/map'). Hence, by splitting and calling the last element, we get
             #the kind of task requested.
         task = self.path.split('/')[-1]
         
         id = None #We initialize the variable to None, which will handle finished tasks (see below)
-        
+
         # We assign tasks by extracting the task ID from the dictionary and eliminating it from there, using pop
         if task == 'map' and tasks['map']: # If there are no tasks of a type left, this returns False
-            id = tasks['map'].pop(0)  
+            id = tasks['map'].pop(0) 
+            print(f"Sending map task with ID {id} to worker.")
         elif task == 'reduce' and tasks['reduce']:
-            id = tasks['reduce'].pop(0)  
+            if len(completed_tasks["map"])<M:
+                id = -1   # This sends a flag value if maps are not done yet
+            else:
+                id = tasks['reduce'].pop(0)
+                print(f"Sending reduce task with ID {id} to worker.")
            
-            
         # We send the response. 
-        if id is not None:
-            reply = {'task': task, 'id': id}
+        if task == 'info':
+            reply = {'N': N, 'M': M} # Info task retrieves M and N
         else:
-            reply = {'task': 'no_tasks', 'id': id} # If there are no tasks of a kind left, we return 'no_tasks'
+            if id is not None:
+                reply = {'task': task, 'id': id}
+            else:
+                reply = {'task': 'no_tasks', 'id': id} # If there are no tasks of a kind left, we return 'no_tasks'
         
         self.send_response(200) # We signal a succesful request
         # We will send the reply using a JSON format
@@ -73,7 +85,7 @@ class Driver(BaseHTTPRequestHandler):
     #################################
 
 
-def _driver(port):
+def old_driver(port):
     """
     Runs the driver server.
 
@@ -85,66 +97,118 @@ def _driver(port):
     server.serve_forever() # We set the server to be eternally on.
 
 #######################################
-
-
-def _text_parsercombine_and_split_txt_files(folder_path, num_files):
+def _driver(port):
     """
-    Combine all .txt files in the specified folder, preserving spaces,
-    and split the combined content into a set of numbered .txt files.
+    Runs the driver server.
+    
+    Parameters:
+        port (int): Port number that the driver will be using.
+    """
+    global completed_tasks, M
+
+    address = ('', port)  # We set the address of the driver running on all interfaces.
+    server = HTTPServer(address, Driver)  # We load the server.
+    
+    print(f"Driver running on port {port}")
+    
+    # We run the server in a separate thread so we can check for task completion
+    thread = threading.Thread(target=server.serve_forever)
+    thread.daemon = True  # We set the server to be killed when the main thread finishes
+    thread.start()
+    
+    # Periodically check if all tasks are completed, then shut down the server
+    try:
+        while True:
+            if not tasks["reduce"]: # The server closes when all reduce tasks are done
+                print("----------------------")
+                print("All tasks completed. Shutting down server in 40 seconds.")
+                print("----------------------")
+                time.sleep(40) # We give it time to send the task done signal to all workers (which sleep only 30 seconds).
+                server.shutdown() 
+                break
+            time.sleep(5)  # Check every 5 seconds
+    except KeyboardInterrupt:
+        print("Server interrupted. Shutting down.")
+        server.shutdown()
+
+    thread.join()  # Wait for the server thread to finish
+
+#######################################
+
+def process_input_text(path, N_tasks):
+    """
+    Processes all the txt files in the path folder and splits them in
+    N_tasks files to send later to the map tasks.
 
     Parameters:
-    folder_path (str): The path to the folder containing .txt files.
-    num_files (int): The number of output files to create.
-
-    Returns:
-    None
+        path (string): Path of the folder containing the input files.
+        N_tasks (int): Number of output files.
+    
     """
-    # Step 1: Gather all .txt files in the specified folder
-    txt_files = [f for f in os.listdir(folder_path) if f.endswith('.txt')]
-    combined_content = ""
 
-    # Step 2: Read and combine the contents of all .txt files
-    for txt_file in txt_files:
-        file_path = os.path.join(folder_path, txt_file)
-        with open(file_path, 'r', encoding='utf-8') as file:
-            combined_content += file.read() + " "  # Preserve spaces
+    lines = []
+    
+    # We start by collecting all the txt files in the given folder and concatenating
+        #all their lines
+    
+    txts = glob.glob(os.path.join(path, '*.txt'))
+    
+    for file in txts:
+        with open(file, 'r') as fi:
+            lines.extend(fi.readlines())
+    
+    total = len(lines)
+    
+    # We now calculate how many lines to put in each of the files for the tasks
+    lines_per_file = total // N_tasks
+    remainder = total % N_tasks  # Some files might need an extra line
 
-    # Step 3: Calculate the size of each split file
-    content_length = len(combined_content)
-    split_size = content_length // num_files if num_files > 0 else 0
+    #We output the files by iterating in N_tasks
+    start = 0
+    for count in range(1, N_tasks + 1):
+        # We calculate the number of lines for the current file
+        # Of the division above is not exact, we just add another line to the files
+            #until we distribute all the remainder lines
+        current_file_lines = lines_per_file + (1 if count <= remainder else 0) 
+        end = start + current_file_lines
+        
+        # We write the lines to a new file
+        name = os.path.join("temp/tasks/", f'{count-1}.txt')
+        with open(name, 'w') as file_i:
+            file_i.writelines(lines[start:end])
+        
+        start = end  # Move the start index for the next file
 
-    # Step 4: Split combined content into the specified number of files
-    for i in range(num_files):
-        start_index = i * split_size
-        # Ensure we don't exceed the content length
-        end_index = content_length if i == num_files - 1 else (i + 1) * split_size
-
-        # Create the output file name
-        output_file_name = f'output_{i + 1}.txt'
-        output_file_path = os.path.join(folder_path, output_file_name)
-
-        # Write the split content to the output file
-        with open(output_file_path, 'w', encoding='utf-8') as output_file:
-            output_file.write(combined_content[start_index:end_index].strip())
-
-    print(f"Created {num_files} files in '{folder_path}'.")
+########################################
 
 # We set the main function, which will create the needed temporal folders and run the server
 
 if __name__ == '__main__':
 
+    """
+    Script that initializes the driver server.
+    
+    Parameters:
+    --N (int): Number of map tasks.
+    --M (int): Number of reduce tasks.
+    --p (int): Port on which the server will be listening.
+    """
+
+    # We first create the required folders.
     if not os.path.exists('temp'):
         os.mkdir('temp')
         
-    if not os.path.exists('temp/intermediate'):
-        os.mkdir('temp/intermediate')
+    if not os.path.exists('intermediate'):
+        os.mkdir('intermediate')
 
-    if not os.path.exists('output'):
-        os.mkdir('output')
+    if not os.path.exists('out'):
+        os.mkdir('out')
 
     if not os.path.exists('temp/tasks'):
         os.mkdir('temp/tasks')
     
 
-    
-    _driver(p)  # Driver running on port 8080
+    process_input_text("inputs/", N) # We start by processing the input test to generate N map tasks.
+    print(f"Running map_reduce with N={N} map tasks and M={M} reduce tasks")
+    print("Output files can be found in /out.")
+    _driver(p)  # Driver running on port p
