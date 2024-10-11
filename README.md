@@ -41,7 +41,7 @@ After no more tasks are waiting to be finished, the driver shutsdown, with a wai
 
 ### worker.py
 
-This file runs a worker process which performs the map and reduce tasks received by the driver. It first asks the driver how many tasks of each type are, by a `GET` call. Afterwards, it starts asking for tasks to perform. First, it inquires for map tasks and, if those are not available anymore, for reduce tasks. If all map tasks have been assigned but not finished, it waits before starting to reduce. If they are not task remaining, the worker finishes execution.
+This file runs a worker process which performs the map and reduce tasks received by the driver. It first asks the driver how many tasks of each type are, by a `GET` call. Afterwards, it starts asking for tasks to perform. First, it inquires for map tasks and, if those are not available anymore, for reduce tasks. If all map tasks have been assigned but not finished, it waits before starting to reduce. If there are not task remaining, the worker finishes execution.
 
 **Parameters:**
 - -p (int): HTTP port where the driver is listening. The IP is assumed to be `localhost:p`.
