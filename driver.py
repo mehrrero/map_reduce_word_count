@@ -8,23 +8,8 @@ import threading
 import time
 import shutil
 
-# We will take N and M from command line when setting up the driver server, as well as the port address
-parser = argparse.ArgumentParser(description='Inputs for N, and the port address.')
-parser.add_argument('-N', type=int, required=True, help='Number of map tasks (N).')
-parser.add_argument('-M', type=int, required=True, help='Number of reduce tasks (M).')
-parser.add_argument('-p', type=int, required=True, help='Port address for the server (p)')
-args = parser.parse_args()
-N = args.N
-M = args.M
-p = args.p
-    
-# We create two dictionaries to track remaining tasks and completed ones. We will do it in list format
-tasks = {'map': list(range(N)), 'reduce': list(range(M))}  # Tasks available to assign
-completed_tasks = {'map': [], 'reduce': []}  # Tasks that have been completed
-
-
 #############################################################
-
+# We build the driver server by using the BaseHTTPRequestHandler class from http.server
 class Driver(BaseHTTPRequestHandler):
     def do_GET(self):
         """
@@ -33,38 +18,35 @@ class Driver(BaseHTTPRequestHandler):
 
         global completed_tasks, tasks, N, M
         
-        #The task is requested by a call of the form .request('GET', '/map'). Hence, by splitting and calling the last element, we get
-            #the kind of task requested.
+        #The task is requested by a call of the form .request('GET', '/call'). Hence, by splitting and calling the last element, we get the kind of task requested.
         call = self.path.split('/')[-1]
         
-
-        # We assign tasks by extracting the task ID from the dictionary and eliminating it from there, using pop
         
         # If the worker asks for info, we send it back
         if call == 'info':
-            reply = {'N': N, 'M': M} # Info task retrieves M and N
+            reply = {'N': N, 'M': M} # Info retrieves M and N
             
         # The other option is that the worker asks for a task
         elif call == 'task': 
-        
+        # We assign tasks by extracting the task ID from the dictionary and eliminating it from there, using pop 
+            reply = {'task': 'no_tasks', 'id': None} #By default we assign no tasks
+            
             if tasks['map']: # If there are no tasks of a type left, this returns False
                 task = 'map'
                 id = tasks['map'].pop(0) 
-                print(f"Sending map task with ID {id} to worker.")
+                print(f"Sending map task with ID: {id} to worker.")
+                reply = {'task': task, 'id': id}
                 
-            elif not tasks['map'] and tasks['reduce']:
+            elif tasks['reduce'] and not tasks['map']:
                 task = 'reduce'
-                if len(completed_tasks["map"])<M:
+                if len(completed_tasks["map"])<N:
                     id = -1   # This sends a flag value if maps are not done yet
                 else:
                     id = tasks['reduce'].pop(0)
-                    print(f"Sending reduce task with ID {id} to worker.")
-
-            else:
-                task = 'no_tasks' # If all tasks are done, we return 'no_tasks'
-                id = None
-
-            reply = {'task': task, 'id': id}
+                    print(f"Sending reduce task with ID: {id} to worker.")
+                    
+                reply = {'task': task, 'id': id}
+            
             
                 
         # We send the response.         
@@ -80,6 +62,7 @@ class Driver(BaseHTTPRequestHandler):
         """
         Processes a notification of completed task from a worker.
         """
+        global completed_tasks
         
         # We read the JSON coming from the worker
         size = int(self.headers['Content-Length'])
@@ -87,8 +70,9 @@ class Driver(BaseHTTPRequestHandler):
         
         task = message['task']
         id = message['id']
-        completed_tasks[task].append(id) # We add the completed task to the dictionary
-        
+        if id != -1:
+            completed_tasks[task].append(id) # We add the completed task to the dictionary
+            print(f"{task} task with ID: {id} is done.")
         self.send_response(200)# We signal a succesful request
         self.end_headers()
 
@@ -107,40 +91,40 @@ def _driver(port):
     address = ('', port)  # We set the address of the driver running on all interfaces.
     server = HTTPServer(address, Driver)  # We load the server.
     
-    print(f"Driver running on port {port}")
+    print(f"Driver running on port {port}.")
     
     # We run the server in a separate thread so we can check for task completion
     thread = threading.Thread(target=server.serve_forever)
-    thread.daemon = True  # We set the server to be killed when the main thread finishes
+    thread.daemon = True  # We set the server to run independently of the main thread
     thread.start()
     
     # Periodically check if all tasks are completed, then shut down the server
     try:
         while True:
-            if not tasks["reduce"]: # The server closes when all reduce tasks are done
+            if len(completed_tasks["reduce"]) == M: # The server closes when all reduce tasks are done
                 print("----------------------")
-                print("All tasks completed. Shutting down server in 30 seconds.")
+                print("All tasks completed. Shutting down server in 20 seconds.")
                 print("----------------------")
-                time.sleep(30) # We give it time to send the task done signal to all workers (which sleep only 30 seconds).
+                time.sleep(20) # We add a waiting time in case any worker is waiting in the step after asking for reduce
                 server.shutdown() 
                 break
-            time.sleep(10)  # Check every 10 seconds
+            time.sleep(2)  # Check every 2 seconds
     except KeyboardInterrupt:
         print("Server interrupted. Shutting down.")
         server.shutdown()
 
-    thread.join()  # Wait for the server thread to finish
+    thread.join()  # Wait for the server thread to finish before finishing this function
 
 #######################################
 
-def process_input_text(path, N_tasks):
+def process_input_text(path, N):
     """
     Processes all the txt files in the path folder and splits them in
     N_tasks files to send later to the map tasks.
 
     Parameters:
         path (string): Path of the folder containing the input files.
-        N_tasks (int): Number of output files.
+        N (int): Number of output files.
     
     """
 
@@ -158,15 +142,14 @@ def process_input_text(path, N_tasks):
     total = len(lines)
     
     # We now calculate how many lines to put in each of the files for the tasks
-    lines_per_file = total // N_tasks
-    remainder = total % N_tasks  # Some files might need an extra line
+    lines_per_file = total // N
+    remainder = total % N  # Some files might need an extra line if the division is not exact
 
     #We output the files by iterating in N_tasks
     start = 0
-    for count in range(1, N_tasks + 1):
+    for count in range(1, N + 1):
         # We calculate the number of lines for the current file
-        # Of the division above is not exact, we just add another line to the files
-            #until we distribute all the remainder lines
+        # We add another line to the files until we distribute all the remainder lines
         current_file_lines = lines_per_file + (1 if count <= remainder else 0) 
         end = start + current_file_lines
         
@@ -179,8 +162,22 @@ def process_input_text(path, N_tasks):
 
 ########################################
 
-# We set the main function, which will create the needed temporal folders and run the server
 
+# We will take N and M from command line when setting up the driver server, as well as the port address
+parser = argparse.ArgumentParser(description='Inputs for N, and the port address.')
+parser.add_argument('-N', type=int, required=True, help='Number of map tasks (N).')
+parser.add_argument('-M', type=int, required=True, help='Number of reduce tasks (M).')
+parser.add_argument('-p', type=int, required=True, help='Port address for the server (p)')
+args = parser.parse_args()
+N = args.N
+M = args.M
+p = args.p
+    
+# We create two dictionaries to track remaining tasks and completed ones. We will do it in list format
+tasks = {'map': list(range(N)), 'reduce': list(range(M))}  # Tasks available to assign
+completed_tasks = {'map': [], 'reduce': []}  # Tasks that have been completed
+
+# We set the main function, which will create the needed temporal folders and run the server
 if __name__ == '__main__':
 
     """
@@ -207,6 +204,6 @@ if __name__ == '__main__':
 
 
     process_input_text("inputs/", N) # We start by processing the input test to generate N map tasks.
-    print(f"Running map_reduce with N={N} map tasks and M={M} reduce tasks")
+    print(f"Running map_reduce with N={N} map tasks and M={M} reduce tasks.")
     print("Output files can be found in /out.")
     _driver(p)  # Driver running on port p

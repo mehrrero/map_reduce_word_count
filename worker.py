@@ -5,35 +5,37 @@ import os
 import time
 import argparse
 
-# We read p from command line
-parser = argparse.ArgumentParser(description='Input for the port address of the driver.')
-parser.add_argument('-p', type=int, required=True, help='Port address for the driver.')
-args = parser.parse_args()
-p = args.p
 
 ############################################
-def _map(task_id, num_reduces):
+def _map(task_id, M):
     """
     Performs the map task. Saves the intermediate file to disk with a filename mr-{task_id}-{bucket_id}.txt.
 
     Parameters:
         task_id (int): ID of the task to be performed.
-        num_reduces (int): Number of total reduce tasks.        
+        M (int): Number of total reduce tasks.        
     """
+    
     input = f'temp/{task_id}.txt'
+    
     with open(input, 'r') as f:
-        # We eliminate question marks, commas, etc...
-        text = f.read().replace(";", " ").replace('"', " ").replace(",", " ").replace(".", " ").replace("!", " ").replace("?", " ").replace('-', ' ').replace('_', ' ').replace('[', ' ').replace(']', ' ').replace('(', ' ').replace(')', ' ').replace(":"," ").replace("*", " ").replace("#"," ").split()
-         
+        # We eliminate question marks, commas, etc... (Surprisingly, this is the most efficient way in terms of time (?)
+        symbols = [";",".",",",":","'",'"',"[","]","{","}","(",")","!","?","#","-","_","*"]
+
+        text = f.read()
+        for char in symbols:
+            text = text.replace(char, " ")
+            
+        text = text.split()
+    
     # Bucket words by the first letter modulo M
     for word in text:
-
-        #We do not distinguish uppercase or lowercase. We also remove quotation marks and spaces
-        word = word.lower().strip("'").strip()
+        #We do not distinguish uppercase or lowercase. We also remove spaces at the beggining and end
+        word = word.lower().strip()
         
-        if word != '': # We add this to solve issues with empty words after eliminating '
+        if word != '': # We add this to solve issues with empty words after eliminating non-alfanumeric characters
         # We set the buket ID using the unicode code for the first character. 
-            bucket_id = ord(word[0]) % num_reduces 
+            bucket_id = ord(word[0]) % M 
         
         # We append the words to the intermediate file 
             intermediate = f'intermediate/mr-{task_id}-{bucket_id}.txt'
@@ -46,23 +48,25 @@ def _map(task_id, num_reduces):
 ###########################################################
 
 
-def _reduce(bucket_id, num_maps):
+def _reduce(bucket_id, N):
 
     """
     Performs the reduce task for the given bucket_id and all the maps.
 
     Parameters:
         bucket_id (int): ID of the bucket on which the function performs the reduce task.
-        num_maps (int): Number of map tasks that have produced buckets.
+        N (int): Number of map tasks that have produced buckets.
     """
 
     counts = {} # Empty dictionary to store the count
 
     # We run over the map tasks to collect all bucket files
-    for map_id in range(num_maps): 
+    for map_id in range(N): 
         intermediate = f'intermediate/mr-{map_id}-{bucket_id}.txt'
+        
         if not os.path.exists(intermediate):
-            continue
+            continue # with this we ensure that ignore the file if the map has not generated it
+       
         with open(intermediate, 'r') as f:
             for word in f:
                 word = word.strip()
@@ -86,14 +90,17 @@ def _request(driver_IP):
     Returns:
         reply_json (JSON): File with JSON data of the task requested.
     """
-    # We include the call in a loop so that it keeps trying in case there is no driver server yet on. 
+    # We include the call in a loop so that it keeps trying in case there is some communication problem.
+    # Since we have added a first info request, this should not happen, but we keep the insurance loop here, just in case.
     # We added a timeout at the end to space the calls to the driver.
-   
-    while True: # We keep the worker in an infinite loop until the driver exist
+
+    print("Connecting to the driver to request a task.")
+    
+    while True:
         try:
             driver = http.client.HTTPConnection(driver_IP) # We connect to the driver
     
-            driver.request('GET', '/task')  # We first ask the driver for a map task
+            driver.request('GET', '/task')  # We ask the driver for a task
     
             # We obtain the reply from the driver and read it in JSON format 
             reply = driver.getresponse() 
@@ -103,8 +110,7 @@ def _request(driver_IP):
             return reply_json
 
         except (http.client.HTTPException, ConnectionRefusedError) as _:
-            print("Driver not found. Retrying in 5 seconds")
-            time.sleep(5)  # Wait for 5 seconds
+            time.sleep(2)  # Wait for 2 seconds before retrying
            
     
 ###########################################################
@@ -120,24 +126,18 @@ def _done(driver_IP, task, id):
         task (string): Task that has been performed (map or reduce).
         id: ID of the task done.
 
-    Returns: 
-        ex (boolean): Flag indicating whether the server has dissapeared or not.
     """
-    
-    ex = False
+
     connection = http.client.HTTPConnection(driver_IP) # We connect to the driver
 
     #We save the output in a json file that will be sent to the server through the POST method
     head = {'Content-type': 'application/json'}
     info = json.dumps({'task': task, 'id': id})
-    try:
-        connection.request('POST', '/', info, head)
-        connection.getresponse()
-        connection.close()
-    except (http.client.HTTPException, ConnectionRefusedError) as _:
-            print("Driver not found in POST call. All works might be done, check driver log. Closing worker.")
-            ex = True
-    return ex
+    connection.request('POST', '/', info, head)
+    connection.getresponse()
+    connection.close()
+   
+  
 ############################################################
 
 def _info(driver_IP):
@@ -147,9 +147,9 @@ def _info(driver_IP):
     Parameters:
         driver_IP: IP of the driver.
     """
-    global M, N
-
-    tries = 1
+    global M, N, p
+    print(f"Trying to connect to driver on port {p}.")
+    
     while True: #This runs in an infinite loop to wait for the driver
         try:
             driver = http.client.HTTPConnection(driver_IP) # We connect to the driver
@@ -162,12 +162,15 @@ def _info(driver_IP):
             M = reply_json["M"]
             N = reply_json["N"]
             driver.close()
+
+            print("Driver found. Starting works.")
+            
             return True
             
         except (http.client.HTTPException, ConnectionRefusedError) as _:
-            print("Driver not found. Retrying in 10 seconds")
-            time.sleep(10)  # Wait for 10 seconds
-            tries += 1
+            
+            time.sleep(2)  # Wait for 2 seconds before repeating.
+       
   
 
 ############################################################
@@ -196,23 +199,27 @@ def Worker(driver_IP, num_maps, num_reduces):
         id = reply['id']
         
         if task == 'map':
-            print(f"Performing map task with ID: {id}")
+            print(f"Performing map task with ID: {id}.")
             _map(id, num_reduces)
+            
         elif task == 'reduce':
-            if id == -1:
+            if id == -1: # A negative id indicates the worker to wait before retrying to do a reduce task.
                 print("All map tasks have been assigned. Waiting for them to finish before starting reduce tasks.\nWorker sleeping for 10 seconds.")
                 time.sleep(10) 
             else:
-                print(f"Performing reduce task with ID {id}")
+                print(f"Performing reduce task with ID: {id}.")
                 _reduce(id, num_maps)
                 
         # We end up by letting the driver know that the job is finished.
-        ex = _done(driver_host, task, id)
-        if ex:
-            break
+        _done(driver_host, task, id)
+        
 ###########################################################
 
-
+# We read p from command line
+parser = argparse.ArgumentParser(description='Input for the port address of the driver.')
+parser.add_argument('-p', type=int, required=True, help='Port address for the driver.')
+args = parser.parse_args()
+p = args.p
 
 if __name__ == '__main__':
     """
@@ -222,8 +229,6 @@ if __name__ == '__main__':
     -p (int): Port on which the driver is listening.
     """
 
-    time.sleep(2) # This is jus to allow the driver time to perform the first operation on the input files without ugly error messages
-                    # in case driver and workers are called simultaneously.
     
     driver_host = f'localhost:{p}'
     M = None

@@ -19,7 +19,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 echo "----------------------"
 
-# We check if M, N, or p were not provided and if not, fix them to default values.
+# We check if M, N, W or p were provided and if not, fix them to default values.
 if [[ -z "$N" ]]; then
     echo "Resorting to default value for N."
     N=6
@@ -38,12 +38,11 @@ if [[ -z "$p" ]]; then
 fi
 echo "----------------------"
 
-echo "N = $N."
-echo "M = $M."
 echo "Running with $W workers."
 
 python driver.py -M $M -N $N -p $p &
 
+sleep 5 # just to give time to the driver to process the inputs
 for i in $(seq 1 $W)
 do
     python worker.py -p $p &
