@@ -41,9 +41,7 @@ This file launches the driver server that controls the workflow. It is built usi
 
 **HTTP Methods:**
 
-- `GET`: A GET call of the form `GET /call` is processed, with result depending on the value of the handle `call`. Two options are available. If the handle takes the value `task`, the driver checks whether there are remaining tasks to be done. If so, it assigns one of them to the worker. If not, it returns a `no_tasks` message. It will start assigning map tasks and only after all these are assigned, it will start with the reduce tasks. If there are unfinished map tasks, it tells the driver to wait 5 seconds before asking again.
-
-If the handle is `info`, the driver returns the total number of tasks of each type.
+- `GET`: A GET call of the form `GET /call` is processed, with result depending on the value of the handle `call`. Two options are available. If the handle takes the value `task`, the driver checks whether there are remaining tasks to be done. If so, it assigns one of them to the worker. If not, it returns a `no_tasks` message. It will start assigning map tasks and only after all these are assigned, it will start with the reduce tasks. If there are unfinished map tasks, it tells the driver to wait 5 seconds before asking again.\ If the handle is `info`, the driver returns the total number of tasks of each type.
 
 - `POST`: A POST call signals that a task has been finished. The driver then adds the finished task to the complete_tasks dictionary.
 
