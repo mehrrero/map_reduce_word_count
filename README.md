@@ -28,7 +28,7 @@ We have a driver server which controls the flow of work, distributing it among t
 ├── README.md
 ```
 
-The `intermediate`, `out` and `temp` folders are created by the driver when executed if they do not exist.
+*Note:* The `intermediate`, `out` and `temp` folders are created by the driver when executed if they do not exist beforehand.
 
 ### driver.py
 
