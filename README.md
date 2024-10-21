@@ -10,10 +10,6 @@ We have a driver server which controls the flow of work, distributing it among t
 ```bash
 ├── inputs/
 │     ├── input_files (.txt)
-├── instructions/
-│     ├── instruction.md
-│     ├── screenshot1.png
-│     ├── screenshot1.png
 ├── intermediate/
 │     ├── intermediate_files (.txt)
 ├── out/
