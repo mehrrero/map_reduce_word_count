@@ -1,6 +1,6 @@
 # Map-Reduce for word count
 
-The code in this repository solves the classical word count problem using a strategy map-reduce with an arbitrary number of workers that perform the map and reduce tasks, communicating over HTTP protocol.
+The code in this repository solves the classical word count problem using a map-reduce strategy with an arbitrary number of workers that perform the map and reduce tasks, communicating over HTTP protocol.
 
 We have a driver server which controls the flow of work, distributing it among the workers and keeping track of completed tasks.
 
