@@ -29,6 +29,7 @@ def _map(task_id, M):
         text = text.split()
     
     # Bucket words by the first letter modulo M
+    buckets = [""]*M
     for word in text:
         #We do not distinguish uppercase or lowercase. We also remove spaces at the beggining and end
         word = word.lower().strip()
@@ -36,12 +37,13 @@ def _map(task_id, M):
         if word != '': # We add this to solve issues with empty words after eliminating non-alfanumeric characters
         # We set the buket ID using the unicode code for the first character. 
             bucket_id = ord(word[0]) % M 
-        
-        # We append the words to the intermediate file 
-            intermediate = f'intermediate/mr-{task_id}-{bucket_id}.txt'
-            with open(intermediate, 'a') as bucket:
-            
-                bucket.write(f"{word}\n") 
+            buckets[bucket_id] += f"{word}\n"
+
+    # We write the words to the intermediate file 
+    for i in range(M):
+        intermediate = f'intermediate/mr-{task_id}-{i}.txt'
+        with open(intermediate, 'a') as bucket:
+            bucket.write(buckets[i]) 
            
 
 
