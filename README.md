@@ -2,10 +2,7 @@
 
 The code in this repository solves the classical word count problem using a strategy map-reduce with an arbitrary number of workers that perform the map and reduce tasks, communicating over HTTP protocol.
 
-We have a driver server which controls the flow of work, distributing it among the workers and keeping track of completed tasks. A cartoon picture of this can be seen in the figure below.
-
-<img src="./instructions/screenshot1.png" width="50%" alt="Image description">
-
+We have a driver server which controls the flow of work, distributing it among the workers and keeping track of completed tasks.
 
 ## Code structure
 ### Skeletal overview
